@@ -1,0 +1,87 @@
+body {
+    display: flex;
+    font-family: sans-serif;
+    justify-content: center;    
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0px;
+    float: left;
+    margin-bottom: 8px;
+}
+
+table, th, td {
+    border: 2px solid black;
+}
+
+td {
+    font-size: 12pt;
+    height: 20px;
+    width: 20px;
+    text-align: center;
+    font-weight: bold;
+    vertical-align:middle;
+}
+
+td.not-revealed, .not-revealed-mystery {
+    background-color: #eff0f1;
+    border: 2px outset grey;
+}
+
+td.not-revealed-flag {
+    background-color: #DA706D;
+    border: 2px outset grey;
+}
+
+td.not-revealed:hover, .not-revealed-flag:hover, .not-revealed-mystery:hover {
+    cursor: pointer;
+}
+
+td.revealed {
+    padding: 2px;
+    background-color: #C9C7C7;
+    border: 1px solid black !important;
+}
+
+td.mined {
+    background-color: red !important;
+}
+
+td.number-mines-1 {
+    color: blue;
+}
+
+td.number-mines-2 {
+    color: green;
+}
+
+td.number-mines-3 {
+    color: red;
+}
+
+td.number-mines-4 {
+    color: #000084;
+}
+
+td.number-mines-5 {
+    color: #840000;
+}
+td.number-mines-6 {
+    color: #008284;
+}
+td.number-mines-7 {
+    color: #840084;
+}
+td.number-mines-8 {
+    color: #000000;
+}
+
+#timer {
+    clear: both;
+    float: right;
+}
+
+[data-content]::after {
+    content: attr(data-content);
+}

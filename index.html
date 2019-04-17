@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Mineseeker</title>
+        <meta charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="style/style.css">
+        <script src="js/script.js"></script>
+        <script>
+            document.addEventListener("DOMContentLoaded", function(event) {
+                generate(false);
+            });
+        </script>
+    </head>
+    <body>
+        <div id="mineseeker">
+            <select id="difficulty">
+                <option value="10" selected>Beginner</option>
+                <option value="40">Intermediate</option>
+                <option value="99">Expert</option>
+            </select>
+            <input type="button" id="reset" value="Reset" onclick="generate(true)"><br/>
+            <span id="mines"></span>
+            <label id="timer">000</label>       
+            <div id="inner"></div>
+            <span id="notify">&nbsp;</span>          
+        </div>
+    </body>
+</html>
