@@ -5,7 +5,7 @@ Written in JavaScript, HTML and CSS.
 
 Instructions
 -----------
-Download the files and open `index.html` in a web browser.
+Download the files and open `index.html` in a web browser...
 
 Online demo
 -----------
