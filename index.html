@@ -12,16 +12,17 @@
         </script>
     </head>
     <body>
-        <div id="mineseeker">
+        <div id="mineseeker">            
             <select id="difficulty">
                 <option value="10" selected>Beginner</option>
                 <option value="40">Intermediate</option>
                 <option value="99">Expert</option>
-            </select>
-            <input type="button" id="reset" value="Reset" onclick="generate(true)"><br/>
+            </select>            
+            <input type="button" id="reset" value="Generate" onclick="generate(true)"><br/>
             <span id="mines"></span>
             <label id="timer">000</label>       
             <div id="inner"></div>
+            <input type="text" id="seed" placeholder="Seed"/><br/>
             <span id="notify">&nbsp;</span>          
         </div>
     </body>
