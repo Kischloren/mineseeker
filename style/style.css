@@ -77,6 +77,11 @@ td.number-mines-8 {
     color: #000000;
 }
 
+#generated_seed {
+    color: gray;
+    margin-left: 10px;
+}
+
 #timer {
     clear: both;
     float: right;

@@ -30,7 +30,8 @@ class Game {
     /**
      * Generate the game
      */
-    this.generate = function () {
+    this.generate = () => {
+      this.applySeed()
       this.initData()
       this.initGraphics()
       this.notify()
@@ -40,7 +41,7 @@ class Game {
      * @param line the line
      * @param column the column
      */
-    this.cellIsValid = function (line, column) {
+    this.cellIsValid = (line, column) => {
       return (line >= 0 && column >= 0 && line < this.settings.numberOfLines && column < this.settings.numberOfCols)
     }
     /**
@@ -48,7 +49,7 @@ class Game {
      * @param cell the cell on which the mouse/touch down events are triggered
      * @param e the mouse/touch down events
      */
-    this.mouseDownEvent = function (cell, e) {
+    this.mouseDownEvent = (cell, e) => {
       if (this.settings.game.terminated === false) {
         if (e.which === 3) {
           this.updateCell(cell)
@@ -63,7 +64,7 @@ class Game {
      * @param cell the cell on which the mouse/touch up events are triggered
      * @param e the mouse/touch up events
      */
-    this.mouseUpEvent = function (cell, e) {
+    this.mouseUpEvent = (cell, e) => {
       if (this.settings.game.terminated === false) {
         const cellPos = Utils.cellPos(cell)
         if (this.settings.game.firstClick === true) {
@@ -94,10 +95,27 @@ class Game {
         this.notify()
       }
     }
+
+    /**
+     * Apply the seed to the generator
+     */
+    this.applySeed = () => {
+      const seedValue = parseInt(Utils.el('seed').value)
+
+      // If something is specified in the seed field
+      if (seedValue !== undefined && seedValue !== null && seedValue !== '' && seedValue > 0) {
+        this.settings.seed = Utils.el('seed').value
+      } else {
+        this.settings.seed = Math.floor(Math.random() * 2147483647)
+      }
+
+      Utils.el('generated_seed').innerHTML = this.settings.seed
+    }
+
     /**
      * Init the data of the game (settings, squares)
      */
-    this.initData = function () {
+    this.initData = () => {
       // Get the difficulty
       const select = Utils.el('difficulty')
       this.settings.difficulty = parseInt(select.options[select.selectedIndex].value)
@@ -149,18 +167,18 @@ class Game {
       // and https://en.wikipedia.org/wiki/Xorshift
       const xorShift = seed => {
         // Initialize the base seeds (trivial)
-        const baseSeeds = [4, 3, 2, 1]
+        const baseSeeds = [123456, 654321, 456789, 987654]
 
         let [x, y, z, w] = baseSeeds
         const random = () => {
           const t = x ^ (x << 11)
           ;[x, y, z] = [y, z, w]
           w = w ^ (w >> 19) ^ (t ^ (t >> 8))
-          return w / 0x7fffffff
+          return w / 0x7fffffff // 2147483647
         }
 
         // apply the seed
-        ;[x, y, z, w] = baseSeeds.map(i => i + seed)
+        ;[x, y, z, w] = baseSeeds.map(i => i + parseInt(seed))
         // randomize the initial state
         ;[x, y, z, w] = [0, 0, 0, 0].map(() => Math.round(random() * 1e16))
 
@@ -214,7 +232,7 @@ class Game {
     /**
      * Create the graphical elements
      */
-    this.initGraphics = function () {
+    this.initGraphics = () => {
       let div = Utils.el(this.divName)
       let table = Utils.ce('table')
       div.appendChild(table)
@@ -253,7 +271,7 @@ class Game {
     /**
      * Notify something to the player (number of remaining mines, game over)
      */
-    this.notify = function () {
+    this.notify = () => {
       Utils.el('notify').innerHTML = ''
       Utils.el('mines').innerHTML = this.settings.difficulty - this.settings.game.flagged
       if (this.settings.game.terminated === true) {
@@ -266,7 +284,7 @@ class Game {
      * Reveal all the mines when a cell that contains a mine is clicked
      * @param cell the cell that contains a mine
      */
-    this.revealMines = function (cell) {
+    this.revealMines = cell => {
       const cellPos = Utils.cellPos(cell)
       for (let i = 0; i < this.settings.numberOfLines; i++) {
         for (let j = 0; j < this.settings.numberOfCols; j++) {
@@ -296,7 +314,7 @@ class Game {
      * @param line the line where the clicked cell is
      * @param col the column where the clicked cell is
      */
-    this.revealSquare = function (line, col) {
+    this.revealSquare = (line, col) => {
       let cell = this.settings.cells[line][col]
       cell.className = 'revealed'
       const content = this.settings.squares[(line * this.settings.numberOfCols + col)].content
@@ -320,7 +338,7 @@ class Game {
     /**
      * Start a timer to display elapsed time
      */
-    this.startTimer = function () {
+    this.startTimer = () => {
       this.settings.game.timerId = setInterval(() => {
         this.settings.game.elapsedTime += 1
         let innerHTML = this.settings.game.elapsedTime
@@ -337,7 +355,7 @@ class Game {
      * Change the status of a cell (flagged, mystery or not revealed)
      * @param cell the cell to update
      */
-    this.updateCell = function (cell) {
+    this.updateCell = cell => {
       const cellPos = Utils.cellPos(cell)
       if (this.settings.game.firstClick === true) {
         this.startTimer()
@@ -438,7 +456,28 @@ function generate (reset) {
     clearInterval(game.settings.game.timerId)
   }
 
-  // Apply the seed
-  game.settings.seed = Utils.el('seed').value
   game.generate()
+}
+
+// Just a proof of concept
+class AI {
+  constructor () {
+    // Contains some basic or obvious rules to solve the minesweeper
+    this.rules = []
+
+    // Find a pattern in the revealed squares
+    this.findPattern = () => {
+
+    }
+
+    // Update the weight of the hidden squares
+    this.updateWeight = () => {
+
+    }
+
+    // Trigger the mousedown event on a cell
+    this.clickOnCell = cell => {
+
+    }
+  }
 }

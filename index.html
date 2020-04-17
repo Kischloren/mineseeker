@@ -6,7 +6,7 @@
         <link rel="stylesheet" type="text/css" href="style/style.css">
         <script src="js/script.js"></script>
         <script>
-            document.addEventListener("DOMContentLoaded", function(event) {
+            document.addEventListener("DOMContentLoaded", event => {
                 generate(false);
             });
         </script>
@@ -22,8 +22,8 @@
             <span id="mines"></span>
             <label id="timer">000</label>       
             <div id="inner"></div>
-            <input type="text" id="seed" placeholder="Seed"/><br/>
-            <span id="notify">&nbsp;</span>          
+            <input type="text" id="seed" placeholder="Seed"/><label id="generated_seed"></label> <br/>            
+            <span id="notify">&nbsp;</span>
         </div>
     </body>
 </html>
