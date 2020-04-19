@@ -16,6 +16,12 @@ class Game {
       numberOfCols: 8,
       seed: -1,
       totalSquares: 64,
+      multiplayer: {
+        active: true,
+        connected: false,
+        userId: new Date().getTime(),
+        ws: -1
+      },
       game: {
         elapsedTime: 0,
         firstClick: true,
@@ -31,6 +37,9 @@ class Game {
      * Generate the game
      */
     this.generate = () => {
+      if (this.settings.multiplayer.active && !this.settings.multiplayer.connected) {
+        this.initMultiplayer()
+      }
       this.applySeed()
       this.initData()
       this.initGraphics()
@@ -49,10 +58,13 @@ class Game {
      * @param cell the cell on which the mouse/touch down events are triggered
      * @param e the mouse/touch down events
      */
-    this.mouseDownEvent = (cell, e) => {
+    this.mouseDownEvent = (cell, e, callback) => {
       if (this.settings.game.terminated === false) {
         if (e.which === 3) {
           this.updateCell(cell)
+          if (callback) {
+            callback()
+          }
         } else if (e.which === 0 || e.which === 1) {
           this.settings.game.mouseDownStartTime = new Date().getTime()
         }
@@ -64,7 +76,7 @@ class Game {
      * @param cell the cell on which the mouse/touch up events are triggered
      * @param e the mouse/touch up events
      */
-    this.mouseUpEvent = (cell, e) => {
+    this.mouseUpEvent = (cell, e, callback) => {
       if (this.settings.game.terminated === false) {
         const cellPos = Utils.cellPos(cell)
         if (this.settings.game.firstClick === true) {
@@ -91,11 +103,45 @@ class Game {
               this.revealMines(cell)
             }
           }
+          if (callback) {
+            callback(e.which)
+          }
         }
+
         this.notify()
       }
     }
+    /**
+     * Init multiplayer mode
+     */
+    this.initMultiplayer = () => {
+      this.settings.multiplayer.ws = new WebSocket("ws://localhost:3000")
+      this.settings.multiplayer.ws.onopen = () => {
+        console.log('connected !', this.settings.multiplayer.userId)
+        this.settings.multiplayer.connected = true
+        this.settings.multiplayer.ws.send(JSON.stringify({ 'join': this.settings.multiplayer.userId, 'seed': this.settings.seed }))
+      }
 
+      this.settings.multiplayer.ws.onmessage = message => {
+        const data = JSON.parse(message.data)
+        console.log('data received:', data)
+        if (data.down) {
+          this.settings.game.mouseDownStartTime = new Date().getTime()
+          const cell = Utils.el(data.down)
+          if (data.right) {
+            this.mouseDownEvent(cell, { which: 3 })
+          } else {
+            this.mouseUpEvent(cell, { which: 0 })
+          }
+        }
+
+        if (data.seed) {
+          console.log('Reset game with seed:', data.seed)
+          Utils.el('seed').value = data.seed
+          generate(true)
+        }
+      }
+    }
     /**
      * Apply the seed to the generator
      */
@@ -241,25 +287,34 @@ class Game {
         for (let j = 0; j < this.settings.numberOfCols; j++) {
           let cell = row.insertCell(0)
           cell.className = 'not-revealed'
+          cell.id = 'i' + i + 'j' + j
           cell.setAttribute('i', i)
           cell.setAttribute('j', j)
-          cell.addEventListener('contextmenu', (e) => {
+          cell.addEventListener('contextmenu', e => {
             e.preventDefault()
             return false
           }, false)
-          cell.addEventListener('mousedown', (e) => {
+          cell.addEventListener('mousedown', e => {
+            e.preventDefault()
+            this.mouseDownEvent(cell, e, () => {
+              if (this.settings.multiplayer.active) {
+                this.settings.multiplayer.ws.send(JSON.stringify({ 'userid': this.settings.multiplayer.userId, 'right': '' + cell.id }))
+              }
+            })
+          })
+          cell.addEventListener('mouseup', e => {
+            e.preventDefault()
+            this.mouseUpEvent(cell, e, () => {
+              if (this.settings.multiplayer.active) {
+                this.settings.multiplayer.ws.send(JSON.stringify({ 'userid': this.settings.multiplayer.userId, 'down': '' + cell.id }))
+              }
+            })
+          })
+          cell.addEventListener('touchstart', e => {
             e.preventDefault()
             this.mouseDownEvent(cell, e)
           })
-          cell.addEventListener('mouseup', (e) => {
-            e.preventDefault()
-            this.mouseUpEvent(cell, e)
-          })
-          cell.addEventListener('touchstart', (e) => {
-            e.preventDefault()
-            this.mouseDownEvent(cell, e)
-          })
-          cell.addEventListener('touchend', (e) => {
+          cell.addEventListener('touchend', e => {
             e.preventDefault()
             this.mouseUpEvent(cell, e)
           })
@@ -276,7 +331,7 @@ class Game {
       Utils.el('mines').innerHTML = this.settings.difficulty - this.settings.game.flagged
       if (this.settings.game.terminated === true) {
         clearInterval(this.settings.game.timerId)
-        // Utils.el('notify').innerHTML = 'Game finished.'
+        Utils.el('notify').innerHTML = 'Game finished.'
       }
     }
 
