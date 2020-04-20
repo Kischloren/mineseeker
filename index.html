@@ -12,17 +12,23 @@
         </script>
     </head>
     <body>
-        <div id="mineseeker">            
+        <div id="mineseeker">
+            <label for="difficulty">Difficulty</label>            
             <select id="difficulty">
                 <option value="10" selected>Beginner</option>
                 <option value="40">Intermediate</option>
                 <option value="99" selected>Expert</option>
             </select>            
-            <input type="button" id="reset" value="Generate" onclick="generate(true)"><br/>
+            <input type="button" id="reset" value="Generate" onclick="generate(true)">
+            <label id="label_multiplayer">Multiplayer</label>
+            <input type="button" id="button_create" value="Create"">
+            <input type="text" id="input_game_id" placeholder="Game id"/>
+            <input type="button" id="button_join" value="Join">
+            <br/>
             <span id="mines"></span>
             <label id="timer">000</label>       
             <div id="inner"></div>
-            <input type="text" id="seed" placeholder="Seed"/><label id="generated_seed"></label> <br/>            
+            <input type="text" id="input_seed" placeholder="Seed"/><label id="label_seed"></label> <br/>            
             <span id="notify">&nbsp;</span>
         </div>
     </body>

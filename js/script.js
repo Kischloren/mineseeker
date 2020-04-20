@@ -8,7 +8,7 @@ class Game {
     }
 
     this.settings = {
-      debug: false,
+      debug: true,
       version: '1.0.0',
       squares: [], // the data
       cells: [], // the graphical elements
@@ -18,8 +18,10 @@ class Game {
       seed: -1,
       totalSquares: 64,
       multiplayer: {
+        _id: 10251985,
         active: true,
         connected: false,
+        gameid: -1,
         url: 'ws://localhost:3000',
         userid: new Date().getTime(),
         ws: null
@@ -51,6 +53,13 @@ class Game {
      * Generate the game
      */
     this.generate = () => {
+      Utils.el('button_create').addEventListener('mousedown', e => {
+        createMultiplayer()
+      })
+      Utils.el('button_join').addEventListener('mousedown', e => {
+        joinGame(Utils.el('input_game_id').value)
+      })
+
       applySeed()
 
       if (this.settings.multiplayer.active && !this.settings.multiplayer.connected) {
@@ -61,6 +70,7 @@ class Game {
       initGraphics()
       notify()
     }
+
     /**
      * Check if a cell is valid on the given line and column
      * @param line the line
@@ -69,6 +79,7 @@ class Game {
     const cellIsValid = (line, column) => {
       return (line >= 0 && column >= 0 && line < this.settings.numberOfLines && column < this.settings.numberOfCols)
     }
+
     /**
      * Triggered on the mousedown/touchstart events
      * @param cell the cell on which the mouse/touch down events are triggered
@@ -87,6 +98,7 @@ class Game {
         notify()
       }
     }
+
     /**
      * Triggered on the mousedown/touchend events
      * @param cell the cell on which the mouse/touch up events are triggered
@@ -127,6 +139,7 @@ class Game {
         notify()
       }
     }
+
     /**
      * Init multiplayer mode
      */
@@ -137,12 +150,19 @@ class Game {
       ws.onopen = () => {
         debug('connected !', this.settings.multiplayer.userid)
         this.settings.multiplayer.connected = true
-        joinGame()
       }
 
       ws.onmessage = message => {
         const data = JSON.parse(message.data)
         debug('Data received:', data)
+        // A game was created
+        if (data.gameid) {
+          debug('New game created', data.gameid)
+          Utils.el('input_game_id').value = data.gameid
+          this.settings.multiplayer.gameid = data.gameid
+        }
+
+        // An action was performed
         if (data.down) {
           this.settings.game.mouseDownStartTime = new Date().getTime()
           const cell = Utils.el(data.down)
@@ -155,25 +175,26 @@ class Game {
 
         if (data.seed) {
           debug('Reset game with seed:', data.seed)
-          Utils.el('seed').value = data.seed
+          Utils.el('input_seed').value = data.seed
           generate(true)
         }
       }
     }
+
     /**
      * Apply the seed to the generator
      */
     const applySeed = () => {
-      const seedValue = parseInt(Utils.el('seed').value)
+      const seedValue = parseInt(Utils.el('input_seed').value)
 
       // If something is specified in the seed field
       if (seedValue !== undefined && seedValue !== null && seedValue !== '' && seedValue > 0) {
-        this.settings.seed = Utils.el('seed').value
+        this.settings.seed = Utils.el('input_seed').value
       } else {
         this.settings.seed = Math.floor(Math.random() * 2147483647)
       }
 
-      Utils.el('generated_seed').innerHTML = this.settings.seed
+      Utils.el('label_seed').innerHTML = this.settings.seed
     }
 
     /**
@@ -293,6 +314,7 @@ class Game {
         }
       }
     }
+
     /**
      * Create the graphical elements
      */
@@ -457,19 +479,22 @@ class Game {
       }
       notify()
     }
+
     /**
      * Create a multiplayer game
      */
-    const createGame = () => {
-      this.settings.multiplayer.ws.send(JSON.stringify({ 'create': this.settings.multiplayer.userid, 'seed': this.settings.seed }))
+    const createMultiplayer = () => {
+      debug('Creating a multiplayer game', '-')
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'create': this.settings.multiplayer.userid, 'seed': this.settings.seed, '_id': this.settings.multiplayer._id }))
     }
     /**
      * Join a multiplayer game
-     * @param {*} gameid the id of the game to join
+     * @param gameid the id of the game to join
      */
-    const joinGame = (gameid) => {
-      debug('Trying to join a multplayer game')
-      this.settings.multiplayer.ws.send(JSON.stringify({ 'join': this.settings.multiplayer.userid, 'seed': this.settings.seed }))
+    const joinGame = gameid => {
+      debug('Trying to join a multiplayer game', gameid)
+      this.settings.multiplayer.gameid = gameid
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'gameid': gameid, 'join': this.settings.multiplayer.userid, '_id': this.settings.multiplayer._id }))
     }
 
     /**
@@ -477,7 +502,7 @@ class Game {
      * @param action the action to send
      */
     const sendAction = action => {
-      this.settings.multiplayer.ws.send(JSON.stringify({ 'userid': this.settings.multiplayer.userid, 'action': action }))
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'gameid': this.settings.multiplayer.gameid, 'userid': this.settings.multiplayer.userid, 'action': action }))
     }
   }
 }
@@ -545,7 +570,7 @@ const generate = reset => {
   Utils.el('inner').innerHTML = ''
 
   if (typeof game === 'undefined') {
-    game = new Game(Utils.el('seed').value)
+    game = new Game(Utils.el('input_seed').value)
   }
   if (reset === true) {
     clearInterval(game.settings.game.timerId)
