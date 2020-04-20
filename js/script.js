@@ -8,6 +8,7 @@ class Game {
     }
 
     this.settings = {
+      debug: false,
       version: '1.0.0',
       squares: [], // the data
       cells: [], // the graphical elements
@@ -19,8 +20,9 @@ class Game {
       multiplayer: {
         active: true,
         connected: false,
-        userId: new Date().getTime(),
-        ws: -1
+        url: 'ws://localhost:3000',
+        userid: new Date().getTime(),
+        ws: null
       },
       game: {
         elapsedTime: 0,
@@ -33,24 +35,38 @@ class Game {
         timerId: 0
       }
     }
+
+    /**
+     * Add a log entry in the console
+     * @param message the message to see in the console
+     * @param value the value to see in the console
+     */
+    const debug = (message, value) => {
+      if (this.settings.debug) {
+        console.log(message, value)
+      }
+    }
+
     /**
      * Generate the game
      */
     this.generate = () => {
+      applySeed()
+
       if (this.settings.multiplayer.active && !this.settings.multiplayer.connected) {
-        this.initMultiplayer()
+        initMultiplayer()
       }
-      this.applySeed()
-      this.initData()
-      this.initGraphics()
-      this.notify()
+
+      initData()
+      initGraphics()
+      notify()
     }
     /**
      * Check if a cell is valid on the given line and column
      * @param line the line
      * @param column the column
      */
-    this.cellIsValid = (line, column) => {
+    const cellIsValid = (line, column) => {
       return (line >= 0 && column >= 0 && line < this.settings.numberOfLines && column < this.settings.numberOfCols)
     }
     /**
@@ -58,17 +74,17 @@ class Game {
      * @param cell the cell on which the mouse/touch down events are triggered
      * @param e the mouse/touch down events
      */
-    this.mouseDownEvent = (cell, e, callback) => {
+    const mouseDownEvent = (cell, e, callback) => {
       if (this.settings.game.terminated === false) {
         if (e.which === 3) {
-          this.updateCell(cell)
+          updateCell(cell)
           if (callback) {
             callback()
           }
         } else if (e.which === 0 || e.which === 1) {
           this.settings.game.mouseDownStartTime = new Date().getTime()
         }
-        this.notify()
+        notify()
       }
     }
     /**
@@ -76,21 +92,21 @@ class Game {
      * @param cell the cell on which the mouse/touch up events are triggered
      * @param e the mouse/touch up events
      */
-    this.mouseUpEvent = (cell, e, callback) => {
+    const mouseUpEvent = (cell, e, callback) => {
       if (this.settings.game.terminated === false) {
         const cellPos = Utils.cellPos(cell)
         if (this.settings.game.firstClick === true) {
-          this.startTimer()
+          startTimer()
           this.settings.game.firstClick = false
         }
         if (e.which === 0 || e.which === 1) {
           if (new Date().getTime() >= (this.settings.game.mouseDownStartTime + 200)) {
-            this.updateCell(cell)
+            updateCell(cell)
           } else if (cell.className === 'not-revealed') {
             cell.className = 'revealed'
             this.settings.game.remaining--
             if (this.settings.squares[(cellPos.i * this.settings.numberOfCols + cellPos.j)].isMined === false) {
-              this.revealSquare(cellPos.i, cellPos.j)
+              revealSquare(cellPos.i, cellPos.j)
               if (this.settings.game.remaining === 0) {
                 this.settings.game.terminated = true
               }
@@ -100,7 +116,7 @@ class Game {
               this.settings.game.terminated = true
               clearInterval(this.settings.game.timerId)
               // Reveal the mines
-              this.revealMines(cell)
+              revealMines(cell)
             }
           }
           if (callback) {
@@ -108,35 +124,37 @@ class Game {
           }
         }
 
-        this.notify()
+        notify()
       }
     }
     /**
      * Init multiplayer mode
      */
-    this.initMultiplayer = () => {
-      this.settings.multiplayer.ws = new WebSocket("ws://localhost:3000")
-      this.settings.multiplayer.ws.onopen = () => {
-        console.log('connected !', this.settings.multiplayer.userId)
+    const initMultiplayer = () => {
+      let ws = new WebSocket(this.settings.multiplayer.url)
+      this.settings.multiplayer.ws = ws
+
+      ws.onopen = () => {
+        debug('connected !', this.settings.multiplayer.userid)
         this.settings.multiplayer.connected = true
-        this.settings.multiplayer.ws.send(JSON.stringify({ 'join': this.settings.multiplayer.userId, 'seed': this.settings.seed }))
+        joinGame()
       }
 
-      this.settings.multiplayer.ws.onmessage = message => {
+      ws.onmessage = message => {
         const data = JSON.parse(message.data)
-        console.log('data received:', data)
+        debug('Data received:', data)
         if (data.down) {
           this.settings.game.mouseDownStartTime = new Date().getTime()
           const cell = Utils.el(data.down)
-          if (data.right) {
-            this.mouseDownEvent(cell, { which: 3 })
-          } else {
-            this.mouseUpEvent(cell, { which: 0 })
+          if (data.secondary) { // right click
+            mouseDownEvent(cell, { which: 3 })
+          } else { // left click
+            mouseUpEvent(cell, { which: 0 })
           }
         }
 
         if (data.seed) {
-          console.log('Reset game with seed:', data.seed)
+          debug('Reset game with seed:', data.seed)
           Utils.el('seed').value = data.seed
           generate(true)
         }
@@ -145,7 +163,7 @@ class Game {
     /**
      * Apply the seed to the generator
      */
-    this.applySeed = () => {
+    const applySeed = () => {
       const seedValue = parseInt(Utils.el('seed').value)
 
       // If something is specified in the seed field
@@ -161,7 +179,7 @@ class Game {
     /**
      * Init the data of the game (settings, squares)
      */
-    this.initData = () => {
+    const initData = () => {
       // Get the difficulty
       const select = Utils.el('difficulty')
       this.settings.difficulty = parseInt(select.options[select.selectedIndex].value)
@@ -263,7 +281,7 @@ class Game {
             for (let k = 0; k < 8; k++) {
               const line = neighbors[k][0]
               const col = neighbors[k][1]
-              if (this.cellIsValid(line, col) === true) {
+              if (cellIsValid(line, col) === true) {
                 const currentNeighbor = this.settings.squares[(line * this.settings.numberOfCols + col)]
                 if (currentNeighbor.isMined === true) {
                   content++
@@ -278,7 +296,7 @@ class Game {
     /**
      * Create the graphical elements
      */
-    this.initGraphics = () => {
+    const initGraphics = () => {
       let div = Utils.el(this.divName)
       let table = Utils.ce('table')
       div.appendChild(table)
@@ -296,27 +314,27 @@ class Game {
           }, false)
           cell.addEventListener('mousedown', e => {
             e.preventDefault()
-            this.mouseDownEvent(cell, e, () => {
-              if (this.settings.multiplayer.active) {
-                this.settings.multiplayer.ws.send(JSON.stringify({ 'userid': this.settings.multiplayer.userId, 'right': '' + cell.id }))
+            mouseDownEvent(cell, e, () => {
+              if (this.settings.multiplayer.connected) {
+                sendAction({ 'secondary': '' + cell.id })
               }
             })
           })
           cell.addEventListener('mouseup', e => {
             e.preventDefault()
-            this.mouseUpEvent(cell, e, () => {
-              if (this.settings.multiplayer.active) {
-                this.settings.multiplayer.ws.send(JSON.stringify({ 'userid': this.settings.multiplayer.userId, 'down': '' + cell.id }))
+            mouseUpEvent(cell, e, () => {
+              if (this.settings.multiplayer.connected) {
+                sendAction({ 'down': '' + cell.id })
               }
             })
           })
           cell.addEventListener('touchstart', e => {
             e.preventDefault()
-            this.mouseDownEvent(cell, e)
+            mouseDownEvent(cell, e)
           })
           cell.addEventListener('touchend', e => {
             e.preventDefault()
-            this.mouseUpEvent(cell, e)
+            mouseUpEvent(cell, e)
           })
           this.settings.cells[i].push(cell)
         }
@@ -326,7 +344,7 @@ class Game {
     /**
      * Notify something to the player (number of remaining mines, game over)
      */
-    this.notify = () => {
+    const notify = () => {
       Utils.el('notify').innerHTML = ''
       Utils.el('mines').innerHTML = this.settings.difficulty - this.settings.game.flagged
       if (this.settings.game.terminated === true) {
@@ -339,7 +357,7 @@ class Game {
      * Reveal all the mines when a cell that contains a mine is clicked
      * @param cell the cell that contains a mine
      */
-    this.revealMines = cell => {
+    const revealMines = cell => {
       const cellPos = Utils.cellPos(cell)
       for (let i = 0; i < this.settings.numberOfLines; i++) {
         for (let j = 0; j < this.settings.numberOfCols; j++) {
@@ -369,7 +387,7 @@ class Game {
      * @param line the line where the clicked cell is
      * @param col the column where the clicked cell is
      */
-    this.revealSquare = (line, col) => {
+    const revealSquare = (line, col) => {
       let cell = this.settings.cells[line][col]
       cell.className = 'revealed'
       const content = this.settings.squares[(line * this.settings.numberOfCols + col)].content
@@ -381,10 +399,10 @@ class Game {
         for (let k = 0; k < 8; k++) {
           const neighborLine = neighbors[k][0]
           const neighborCol = neighbors[k][1]
-          if (this.cellIsValid(neighborLine, neighborCol) === true &&
+          if (cellIsValid(neighborLine, neighborCol) === true &&
             this.settings.cells[neighborLine][neighborCol].className === 'not-revealed') {
             this.settings.game.remaining--
-            this.revealSquare(neighborLine, neighborCol)
+            revealSquare(neighborLine, neighborCol)
           }
         }
       }
@@ -393,7 +411,7 @@ class Game {
     /**
      * Start a timer to display elapsed time
      */
-    this.startTimer = () => {
+    const startTimer = () => {
       this.settings.game.timerId = setInterval(() => {
         this.settings.game.elapsedTime += 1
         let innerHTML = this.settings.game.elapsedTime
@@ -410,10 +428,10 @@ class Game {
      * Change the status of a cell (flagged, mystery or not revealed)
      * @param cell the cell to update
      */
-    this.updateCell = cell => {
+    const updateCell = cell => {
       const cellPos = Utils.cellPos(cell)
       if (this.settings.game.firstClick === true) {
-        this.startTimer()
+        startTimer()
         this.settings.game.firstClick = false
       }
       const isMined = this.settings.squares[(cellPos.i * this.settings.numberOfCols + cellPos.j)].isMined
@@ -437,7 +455,29 @@ class Game {
           cell.textContent = ''
           cell.className = 'not-revealed'
       }
-      this.notify()
+      notify()
+    }
+    /**
+     * Create a multiplayer game
+     */
+    const createGame = () => {
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'create': this.settings.multiplayer.userid, 'seed': this.settings.seed }))
+    }
+    /**
+     * Join a multiplayer game
+     * @param {*} gameid the id of the game to join
+     */
+    const joinGame = (gameid) => {
+      debug('Trying to join a multplayer game')
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'join': this.settings.multiplayer.userid, 'seed': this.settings.seed }))
+    }
+
+    /**
+     * Send an action
+     * @param action the action to send
+     */
+    const sendAction = action => {
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'userid': this.settings.multiplayer.userid, 'action': action }))
     }
   }
 }
@@ -501,7 +541,7 @@ class Utils {
  * Generate the game
  * @param reset if true, reset the game
  */
-function generate (reset) {
+const generate = reset => {
   Utils.el('inner').innerHTML = ''
 
   if (typeof game === 'undefined') {

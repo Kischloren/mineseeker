@@ -8,7 +8,7 @@ let wss = new WSServer({
   server: http
 })
 
-wss.userId = []
+wss.userids = []
 wss.seed = -1
 
 http.on('request', app)
@@ -16,7 +16,7 @@ http.on('request', app)
 wss.broadcast = (userid, message) => {
   wss.clients.forEach(client => {
     if (client.readyState === WS.OPEN) {
-      if (client.userId !== userid) {
+      if (client.userid !== userid) {
         client.send(message)
       }
     }
@@ -24,27 +24,30 @@ wss.broadcast = (userid, message) => {
 }
 
 wss.on('connection', ws => {
-  ws.userId = -1
+  ws.userid = -1
   ws.seed = -1
   ws.on('message', message => {
     console.log(`received: ${message}`)
     let data = JSON.parse(message)
+
     if (data.join) {
-      ws.userId = data.join
-      wss.userId.push(data.join)
-      if (wss.userId.length === 1) {
+      ws.userid = data.join
+      wss.userids.push(data.join)
+      if (wss.userids.length === 1) {
         wss.seed = data.seed
       } else {
         wss.broadcast(data.userid, JSON.stringify({ 'seed': wss.seed }))
       }
     }
-    if (data.down) {
-      wss.broadcast(data.userid, JSON.stringify({ 'down': data.down }))
-    }
-    if (data.right) {
-      wss.broadcast(data.userid, JSON.stringify({ 'down': data.right, 'right': 1 }))
-    }
 
+    if (data.action) {
+      if (data.action.down) {
+        wss.broadcast(data.userid, JSON.stringify({ 'down': data.action.down }))
+      }
+      if (data.action.secondary) {
+        wss.broadcast(data.userid, JSON.stringify({ 'down': data.action.secondary, 'secondary': 1 }))
+      }
+    }
   })
 })
 
