@@ -23,7 +23,7 @@ class Game {
         connected: false,
         gameid: -1,
         url: 'ws://localhost:3000',
-        userid: new Date().getTime(),
+        userid: -1,
         ws: null
       },
       game: {
@@ -63,6 +63,15 @@ class Game {
       applySeed()
 
       if (this.settings.multiplayer.active && !this.settings.multiplayer.connected) {
+        const userid = Utils.el('input_user_id').value
+
+        // If something is specified in the seed field
+        if (userid !== undefined && userid !== null && userid !== '' && userid > 0) {
+          this.settings.multiplayer.userid = userid
+        } else {
+          Utils.el('input_user_id').value = this.settings.multiplayer.userid = new Date().getTime()
+        }
+
         initMultiplayer()
       }
 
@@ -150,6 +159,8 @@ class Game {
       ws.onopen = () => {
         debug('connected !', this.settings.multiplayer.userid)
         this.settings.multiplayer.connected = true
+        // Check if this user is already in a game
+        check()
       }
 
       ws.onmessage = message => {
@@ -189,7 +200,7 @@ class Game {
 
       // If something is specified in the seed field
       if (seedValue !== undefined && seedValue !== null && seedValue !== '' && seedValue > 0) {
-        this.settings.seed = Utils.el('input_seed').value
+        this.settings.seed = seedValue
       } else {
         this.settings.seed = Math.floor(Math.random() * 2147483647)
       }
@@ -486,6 +497,13 @@ class Game {
     const createMultiplayer = () => {
       debug('Creating a multiplayer game', '-')
       this.settings.multiplayer.ws.send(JSON.stringify({ 'create': this.settings.multiplayer.userid, 'seed': this.settings.seed, '_id': this.settings.multiplayer._id }))
+    }
+    /**
+     * Check if the user is already in a gmae
+     */
+    const check = () => {
+      debug('Check if this user is already in a gmae', this.settings.multiplayer.userid)
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'check': this.settings.multiplayer.userid, '_id': this.settings.multiplayer._id }))
     }
     /**
      * Join a multiplayer game

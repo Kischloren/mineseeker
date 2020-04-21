@@ -9,13 +9,13 @@ let wss = new WSServer({
 })
 
 wss._id = 10251985
-wss.games = new Map() // [gameid, seed]
-wss.players = new Map() // [gameid, [userid1, userid2]]
+wss.configs = new Map() // [gameid, seed]
+wss.games = new Map() // [gameid, [userid1, userid2]]
 
 http.on('request', app)
 
 wss.broadcast = (gameid, userid, message) => {
-  const userids = wss.players.get(gameid)
+  const userids = wss.games.get(gameid)
   if (userids !== undefined) {
     userids.forEach(_userid => {
       wss.clients.forEach(client => {
@@ -33,6 +33,12 @@ wss.on('connection', ws => {
   ws.userid = -1
   ws.seed = -1
 
+  console.log('connection!')
+
+  ws.on('close', data => {
+    console.log(data, 'disconnect!')
+  })
+
   // TODO:
   // - the deconnection
   // - the end of a game (failure or success)
@@ -45,11 +51,11 @@ wss.on('connection', ws => {
     // Create a game session
     if (data.create) {
       if (data._id === wss._id) {
-        ws.userid = data.create
+        ws.userid = parseInt(data.create)
 
         const gameid = new Date().getTime()
-        wss.games.set(gameid, data.seed)
-        wss.players.set(gameid, [data.create])
+        wss.configs.set(gameid, data.seed)
+        wss.games.set(gameid, [ws.userid])
         ws.send(JSON.stringify({ 'gameid': gameid }))
       }
     }
@@ -57,14 +63,14 @@ wss.on('connection', ws => {
     // Join a game session
     if (data.join) {
       if (data._id === wss._id) {
-        ws.userid = data.join
+        ws.userid = parseInt(data.join)
 
         const gameid = parseInt(data.gameid)
 
         // Add the user in the game
-        wss.players.get(gameid).push(data.join)
+        wss.games.get(gameid).push(ws.userid)
         // Get the seed
-        const seed = wss.games.get(gameid)
+        const seed = wss.configs.get(gameid)
 
         // Send the seed back to the use
         ws.send(JSON.stringify({ 'seed': seed }))
@@ -74,12 +80,31 @@ wss.on('connection', ws => {
     // Dispatch an action
     if (data.action) {
       const gameid = parseInt(data.gameid)
+      const userid = parseInt(data.userid)
       if (data.action.down) {
-        wss.broadcast(gameid, data.userid, JSON.stringify({ 'down': data.action.down }))
+        wss.broadcast(gameid, userid, JSON.stringify({ 'down': data.action.down }))
       }
       if (data.action.secondary) {
-        wss.broadcast(gameid, data.userid, JSON.stringify({ 'down': data.action.secondary, 'secondary': 1 }))
+        wss.broadcast(gameid, userid, JSON.stringify({ 'down': data.action.secondary, 'secondary': 1 }))
       }
+    }
+
+    // Check if the user is still in a game (after a refresh)
+    if (data.check) {
+      if (data._id === wss._id) {
+        ws.userid = parseInt(data.check)
+        wss.games.forEach((userids, gameid) => {
+          userids.forEach(_userid => {
+            if (_userid === ws.userid) {
+              console.log('User already in a game:', ws.userid)
+              // Tell the other players that someone refreshed
+              wss.broadcast(gameid, ws.userid, JSON.stringify({ 'seed': wss.configs.get(gameid) }))
+              // Re-apply the gameid to the current user
+              ws.send(JSON.stringify({ 'gameid': gameid }))
+            }
+          })
+        })
+      }      
     }
   })
 })
