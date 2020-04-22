@@ -53,26 +53,49 @@ class Game {
      * Generate the game
      */
     this.generate = () => {
-      Utils.el('button_create').addEventListener('mousedown', e => {
-        createMultiplayer()
-      })
-      Utils.el('button_join').addEventListener('mousedown', e => {
-        joinGame(Utils.el('input_game_id').value)
-      })
+      initSeed()
 
-      applySeed()
-
+      // Multiplayer stuff
       if (this.settings.multiplayer.active && !this.settings.multiplayer.connected) {
+        Utils.el('button_generate').addEventListener('mousedown', e => {
+          e.preventDefault()
+          this.settings.seed = -1
+          initSeed()
+          generate(true)
+          newSeed()
+          if (this.settings.multiplayer.connected) {
+            // Toggle UI elements
+            // Utils.toggleMultiplayerUI()
+          }
+        })
+        Utils.el('button_create').addEventListener('mousedown', e => {
+          createMultiplayer()
+          // Toggle UI elements
+          Utils.toggleMultiplayerUI()
+        })
+        Utils.el('button_join').addEventListener('mousedown', e => {
+          joinGame(Utils.el('input_game_id').value)
+          // Toggle UI elements
+          Utils.toggleMultiplayerUI()
+        })
+        Utils.el('button_disconnect').addEventListener('mousedown', e => {
+          disconnect()
+          // Toggle UI elements
+          Utils.toggleMultiplayerUI(false)
+          Utils.el('input_game_id').value = ''
+          Utils.el('input_user_id').value = ''
+        })
+
         const userid = Utils.el('input_user_id').value
 
-        // If something is specified in the seed field
+        // If something is specified in the user id (hidden)field
         if (userid !== undefined && userid !== null && userid !== '' && userid > 0) {
           this.settings.multiplayer.userid = userid
         } else {
           Utils.el('input_user_id').value = this.settings.multiplayer.userid = new Date().getTime()
         }
 
-        initMultiplayer()
+        initSocket()
       }
 
       initData()
@@ -150,27 +173,33 @@ class Game {
     }
 
     /**
-     * Init multiplayer mode
+     * Init the socket for multiplayer mode
      */
-    const initMultiplayer = () => {
+    const initSocket = () => {
       let ws = new WebSocket(this.settings.multiplayer.url)
       this.settings.multiplayer.ws = ws
 
       ws.onopen = () => {
-        debug('connected !', this.settings.multiplayer.userid)
+        debug('connected!', this.settings.multiplayer.userid)
         this.settings.multiplayer.connected = true
-        // Check if this user is already in a game
-        check()
+        // Try to reconnect the user to a session
+        reconnect()
       }
 
       ws.onmessage = message => {
         const data = JSON.parse(message.data)
         debug('Data received:', data)
+
         // A game was created
         if (data.gameid) {
-          debug('New game created', data.gameid)
           Utils.el('input_game_id').value = data.gameid
           this.settings.multiplayer.gameid = data.gameid
+          if (!data.seed) {
+            debug('New game created', data.gameid)
+            generate(true)
+            // Disable UI elements
+            Utils.toggleMultiplayerUI()
+          }
         }
 
         // An action was performed
@@ -184,9 +213,18 @@ class Game {
           }
         }
 
+        if (data.nosession) {
+          debug('The user was not previously connected to a session', '-')
+        }
+
+        // Re-apply the seed
         if (data.seed) {
-          debug('Reset game with seed:', data.seed)
-          Utils.el('input_seed').value = data.seed
+          debug('Re-apply the seed', data.seed)
+          this.settings.seed = data.seed
+          if (data.gameid) {
+            // Disable UI elements
+            Utils.toggleMultiplayerUI()
+          }
           generate(true)
         }
       }
@@ -195,16 +233,10 @@ class Game {
     /**
      * Apply the seed to the generator
      */
-    const applySeed = () => {
-      const seedValue = parseInt(Utils.el('input_seed').value)
-
-      // If something is specified in the seed field
-      if (seedValue !== undefined && seedValue !== null && seedValue !== '' && seedValue > 0) {
-        this.settings.seed = seedValue
-      } else {
+    const initSeed = () => {
+      if (this.settings.seed === -1) {
         this.settings.seed = Math.floor(Math.random() * 2147483647)
       }
-
       Utils.el('label_seed').innerHTML = this.settings.seed
     }
 
@@ -492,27 +524,42 @@ class Game {
     }
 
     /**
-     * Create a multiplayer game
+     * Create a multiplayer session
      */
     const createMultiplayer = () => {
-      debug('Creating a multiplayer game', '-')
+      debug('Creating a multiplayer session', '-')
       this.settings.multiplayer.ws.send(JSON.stringify({ 'create': this.settings.multiplayer.userid, 'seed': this.settings.seed, '_id': this.settings.multiplayer._id }))
     }
+
     /**
-     * Check if the user is already in a gmae
+     * Try to reconnect the user to a session
      */
-    const check = () => {
-      debug('Check if this user is already in a gmae', this.settings.multiplayer.userid)
-      this.settings.multiplayer.ws.send(JSON.stringify({ 'check': this.settings.multiplayer.userid, '_id': this.settings.multiplayer._id }))
+    const reconnect = () => {
+      debug('Try to reconnect the user to a session', this.settings.multiplayer.userid)
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'reconnect': this.settings.multiplayer.userid, '_id': this.settings.multiplayer._id }))
     }
+
     /**
-     * Join a multiplayer game
+     * Disconnect the user from the current multiplayer session
+     */
+    const disconnect = () => {
+      debug('Disconnected from the session', this.settings.multiplayer.gameid)
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'disconnect': this.settings.multiplayer.userid, '_id': this.settings.multiplayer._id }))
+    }
+
+    /**
+     * Join a multiplayer session
      * @param gameid the id of the game to join
      */
     const joinGame = gameid => {
-      debug('Trying to join a multiplayer game', gameid)
+      debug('Try to join a multiplayer session', gameid)
       this.settings.multiplayer.gameid = gameid
       this.settings.multiplayer.ws.send(JSON.stringify({ 'gameid': gameid, 'join': this.settings.multiplayer.userid, '_id': this.settings.multiplayer._id }))
+    }
+
+    const newSeed = () => {
+      debug('Sent the new seed to the other players', this.settings.seed)
+      this.settings.multiplayer.ws.send(JSON.stringify({ 'newseed': this.settings.seed, '_id': this.settings.multiplayer._id }))
     }
 
     /**
@@ -548,12 +595,14 @@ class Utils {
     const j = parseInt(cell.getAttribute('j'))
     return { i: i, j: j }
   }
+
   /**
    * Create an element
    */
   static ce (elementId) {
     return document.createElement(elementId)
   }
+
   /**
    * Get the element with the given ID
    * @param elementId the ID of the element
@@ -561,6 +610,7 @@ class Utils {
   static el (elementId) {
     return document.getElementById(elementId)
   }
+
   /**
    * Get the neighbors of a square
    * @param line the line where the square is
@@ -578,6 +628,16 @@ class Utils {
       [line - 1, col + 1]
     ]
   }
+
+  /**
+   * Toggle multiplayer UI
+   * @param connected is in connected mode
+   */
+  static toggleMultiplayerUI (connected = true) {
+    Utils.el('button_create').disabled = connected
+    Utils.el('button_join').disabled = connected
+    Utils.el('button_disconnect').disabled = !connected
+  }
 }
 
 /**
@@ -588,7 +648,7 @@ const generate = reset => {
   Utils.el('inner').innerHTML = ''
 
   if (typeof game === 'undefined') {
-    game = new Game(Utils.el('input_seed').value)
+    game = new Game()
   }
   if (reset === true) {
     clearInterval(game.settings.game.timerId)
