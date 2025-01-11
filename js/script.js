@@ -8,6 +8,7 @@ class Game {
     }
 
     this.settings = {
+      alreadyGenerated: false,
       debug: true,
       version: '1.0.0',
       squares: [], // the data
@@ -56,14 +57,14 @@ class Game {
       initSeed()
 
       // Multiplayer stuff
-      if (this.settings.multiplayer.active && !this.settings.multiplayer.connected) {
+      if (!this.settings.alreadyGenerated && this.settings.multiplayer.active && !this.settings.multiplayer.connected) {
         Utils.el('button_generate').addEventListener('mousedown', e => {
           e.preventDefault()
           this.settings.seed = -1
           initSeed()
           generate(true)
-          newSeed()
           if (this.settings.multiplayer.connected) {
+            newSeed()
             // Toggle UI elements
             // Utils.toggleMultiplayerUI()
           }
@@ -97,10 +98,12 @@ class Game {
 
         initSocket()
       }
-
+      
       initData()
       initGraphics()
       notify()
+
+      this.settings.alreadyGenerated = true;
     }
 
     /**
@@ -334,6 +337,8 @@ class Game {
       } else {
         this.settings.squares = shuffle(squares)
       }
+
+      squares = []
 
       // Get the mines around each square
       for (let i = 0; i < this.settings.numberOfLines; i++) {
