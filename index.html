@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <title>Mineseeker</title>
         <meta charset="utf-8">
@@ -15,12 +15,12 @@
         <div id="mineseeker">
             <label for="difficulty">Difficulty</label>            
             <select id="difficulty">
-                <option value="10" selected>Beginner</option>
+                <option value="10">Beginner</option>
                 <option value="40">Intermediate</option>
                 <option value="99" selected>Expert</option>
-            </select>            
+            </select>
             <input type="button" id="button_generate" value="Generate" onclick="generate(true)">
-            <label id="label_multiplayer">Multiplayer</label>
+            <label id="label_multiplayer" for="button_create">Multiplayer</label>
             <input type="button" id="button_create" value="Create"">
             <input type="text" id="input_game_id" placeholder="Game id"/>
             <input type="button" id="button_join" value="Join">
